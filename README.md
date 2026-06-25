@@ -1,75 +1,67 @@
-# React + TypeScript + Vite
+# Pulse Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+An interactive project analytics dashboard built with React 19, Vite, Framer Motion, GSAP, and Tailwind CSS. It fetches live project metrics from the Pulse backend and presents them through animated KPI counters, SVG performance rings, a grid/list view toggle with layout morphing, and a shared-layout card-to-modal expansion.
 
-Currently, two official plugins are available:
+## Prerequisites
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- [Node.js](https://nodejs.org/) v18+
+- [Yarn](https://yarnpkg.com/) or npm
+- Pulse backend running at `http://localhost:4004` — see [pulse-backend-nsc](../pulse-backend-nsc/README.md)
 
-## React Compiler
+## Getting Started
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+### 1. Install dependencies
 
-Note: This will impact Vite dev & build performances.
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-    globalIgnores(["dist"]),
-    {
-        files: ["**/*.{ts,tsx}"],
-        extends: [
-            // Other configs...
-
-            // Remove tseslint.configs.recommended and replace with this
-            tseslint.configs.recommendedTypeChecked,
-            // Alternatively, use this for stricter rules
-            tseslint.configs.strictTypeChecked,
-            // Optionally, add this for stylistic rules
-            tseslint.configs.stylisticTypeChecked,
-
-            // Other configs...
-        ],
-        languageOptions: {
-            parserOptions: {
-                project: ["./tsconfig.node.json", "./tsconfig.app.json"],
-                tsconfigRootDir: import.meta.dirname,
-            },
-            // other options...
-        },
-    },
-]);
+```bash
+npm install
+# or
+yarn install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 2. Start the development server
 
-```js
-// eslint.config.js
-import reactX from "eslint-plugin-react-x";
-import reactDom from "eslint-plugin-react-dom";
-
-export default defineConfig([
-    globalIgnores(["dist"]),
-    {
-        files: ["**/*.{ts,tsx}"],
-        extends: [
-            // Other configs...
-            // Enable lint rules for React
-            reactX.configs["recommended-typescript"],
-            // Enable lint rules for React DOM
-            reactDom.configs.recommended,
-        ],
-        languageOptions: {
-            parserOptions: {
-                project: ["./tsconfig.node.json", "./tsconfig.app.json"],
-                tsconfigRootDir: import.meta.dirname,
-            },
-            // other options...
-        },
-    },
-]);
+```bash
+npm run dev
+# or
+yarn dev
 ```
+
+The app will be available at `http://localhost:5173`. API calls to `/api/*` are proxied to the backend at `http://localhost:4004`.
+
+### 3. Production build
+
+```bash
+npm run build
+npm run serve
+```
+
+## Project Structure
+
+```
+src/
+├── api/              # Fetch wrappers (metrics.ts)
+├── types/            # Shared TypeScript interfaces
+├── hooks/            # Data-fetching hooks (useMetrics)
+├── lib/              # Framer Motion variant presets
+├── components/
+│   ├── layout/       # Sidebar, TopNav
+│   ├── cards/        # ProjectCard, ProjectModal
+│   ├── kpi/          # KpiCounter (GSAP tween)
+│   ├── charts/       # PerformanceRing (SVG + GSAP)
+│   └── ui/           # StatusBadge, ViewToggle
+└── pages/            # Dashboard page
+```
+
+## Available Scripts
+
+| Command            | Description                          |
+| ------------------ | ------------------------------------ |
+| `npm run dev`      | Start dev server with HMR            |
+| `npm run build`    | Type-check and build for production  |
+| `npm run serve`    | Preview the production build         |
+| `npm run lint`     | Run ESLint                           |
+| `npm run format`   | Format source files with Prettier    |
+
+## Animation Architecture
+
+GSAP tweens are initialised inside `useEffect` with the returned `tween.kill()` as the cleanup, so no timeline leaks across re-renders. Framer Motion layout animations are scoped to each card via `layoutId`, keeping them isolated and preventing the parent container from triggering unnecessary re-renders on sibling components. The React Compiler (Babel plugin) handles memoisation automatically, so component subtrees that don't receive new props are skipped entirely during animation-driven state updates.
