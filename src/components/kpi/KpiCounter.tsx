@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { gsap } from "gsap";
 import { motion } from "framer-motion";
 import { fadeSlideUp } from "../../lib/variants";
+import { prefersReducedMotion } from "../../lib/motion";
 
 interface Props {
     label: string;
@@ -26,23 +27,40 @@ export function KpiCounter({
     const proxy = useRef({ val: 0 });
 
     useEffect(() => {
-        if (!numRef.current) return;
-        const tween = gsap.to(proxy.current, {
-            val: value,
-            duration: 1.8,
-            delay: index * 0.15,
-            ease: "power3.out",
-            onUpdate() {
-                if (numRef.current) {
-                    numRef.current.textContent = Math.round(
-                        proxy.current.val,
-                    ).toLocaleString();
-                }
-            },
+        const el = numRef.current;
+        if (!el) return;
+
+        // Honour reduced-motion: land on the final value with no tween.
+        if (prefersReducedMotion()) {
+            el.textContent = value.toLocaleString();
+            return;
+        }
+
+        // gsap.context scopes every tween created inside it; ctx.revert() on
+        // cleanup kills them all in one call, so nothing survives a re-render.
+        const ctx = gsap.context(() => {
+            gsap.to(proxy.current, {
+                val: value,
+                duration: 1.8,
+                delay: 0.3 + index * 0.12,
+                ease: "power3.out",
+                // snap keeps the readout on whole integers throughout.
+                snap: { val: 1 },
+                onUpdate() {
+                    el.textContent = proxy.current.val.toLocaleString();
+                },
+                onComplete() {
+                    // Tiny overshoot pop the instant the number settles.
+                    gsap.fromTo(
+                        el,
+                        { scale: 1.12 },
+                        { scale: 1, duration: 0.45, ease: "back.out(2.5)" },
+                    );
+                },
+            });
         });
-        return () => {
-            tween.kill();
-        };
+
+        return () => ctx.revert();
     }, [value, index]);
 
     return (
@@ -66,7 +84,9 @@ export function KpiCounter({
                     </p>
                     <p className="text-2xl font-semibold tabular-nums text-gray-900">
                         {prefix}
-                        <span ref={numRef}>0</span>
+                        <span ref={numRef} className="inline-block origin-left">
+                            0
+                        </span>
                         {suffix}
                     </p>
                 </div>

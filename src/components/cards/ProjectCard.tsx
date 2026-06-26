@@ -1,9 +1,10 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { gsap } from "gsap";
 import type { ProjectMetric } from "../../types/metrics";
 import { StatusBadge } from "../ui/StatusBadge";
 import { cardItem } from "../../lib/variants";
+import { prefersReducedMotion } from "../../lib/motion";
 
 interface Props {
     project: ProjectMetric;
@@ -14,49 +15,67 @@ interface Props {
 export function ProjectCard({ project, isList, onClick }: Props) {
     const cardRef = useRef<HTMLDivElement>(null);
     const glowRef = useRef<HTMLDivElement>(null);
+    // Rect is read once on enter, never per mousemove, to avoid forced reflow.
+    const rect = useRef<DOMRect | null>(null);
+    // quickTo setters reuse one tween each instead of allocating per event.
+    const setters = useRef<{
+        rotX: gsap.QuickToFunc;
+        rotY: gsap.QuickToFunc;
+        glowX: gsap.QuickToFunc;
+        glowY: gsap.QuickToFunc;
+    } | null>(null);
 
-    function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    useEffect(() => {
         const el = cardRef.current;
         const glow = glowRef.current;
-        if (!el || !glow) return;
-        const rect = el.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        if (!el || !glow || prefersReducedMotion()) return;
 
-        // Magnet tilt
-        const cx = rect.width / 2;
-        const cy = rect.height / 2;
-        const rotX = ((y - cy) / cy) * -5;
-        const rotY = ((x - cx) / cx) * 5;
-        gsap.to(el, {
-            rotateX: rotX,
-            rotateY: rotY,
-            duration: 0.25,
-            ease: "power2.out",
-            transformPerspective: 800,
-        });
+        gsap.set(el, { transformPerspective: 800 });
+        setters.current = {
+            rotX: gsap.quickTo(el, "rotateX", { duration: 0.4, ease: "power3" }),
+            rotY: gsap.quickTo(el, "rotateY", { duration: 0.4, ease: "power3" }),
+            glowX: gsap.quickTo(glow, "x", { duration: 0.5, ease: "power3" }),
+            glowY: gsap.quickTo(glow, "y", { duration: 0.5, ease: "power3" }),
+        };
 
-        // Follow glow
-        gsap.to(glow, {
-            x: x - 60,
-            y: y - 60,
-            opacity: 1,
-            duration: 0.3,
-            ease: "power2.out",
-        });
+        return () => {
+            gsap.killTweensOf([el, glow]);
+            setters.current = null;
+        };
+    }, []);
+
+    function handleMouseEnter() {
+        const el = cardRef.current;
+        const glow = glowRef.current;
+        if (!el) return;
+        rect.current = el.getBoundingClientRect();
+        if (glow) gsap.to(glow, { opacity: 1, duration: 0.3 });
+    }
+
+    function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+        const s = setters.current;
+        const r = rect.current;
+        if (!s || !r) return;
+        const x = e.clientX - r.left;
+        const y = e.clientY - r.top;
+
+        // Magnet tilt toward the cursor.
+        s.rotX(((y - r.height / 2) / (r.height / 2)) * -5);
+        s.rotY(((x - r.width / 2) / (r.width / 2)) * 5);
+
+        // Glow trails the cursor (offset to centre the 120px blob).
+        s.glowX(x - 60);
+        s.glowY(y - 60);
     }
 
     function handleMouseLeave() {
-        const el = cardRef.current;
+        const s = setters.current;
         const glow = glowRef.current;
-        if (el)
-            gsap.to(el, {
-                rotateX: 0,
-                rotateY: 0,
-                duration: 0.5,
-                ease: "power2.out",
-            });
-        if (glow) gsap.to(glow, { opacity: 0, duration: 0.3 });
+        if (s) {
+            s.rotX(0);
+            s.rotY(0);
+        }
+        if (glow) gsap.to(glow, { opacity: 0, duration: 0.4 });
     }
 
     return (
@@ -71,11 +90,16 @@ export function ProjectCard({ project, isList, onClick }: Props) {
                     : "flex flex-col p-5"
             }`}
             ref={cardRef}
+            onMouseEnter={handleMouseEnter}
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
             style={{ transformStyle: "preserve-3d" }}
+            whileHover={{ y: -3 }}
             whileTap={{ scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 400, damping: 28 }}
         >
+            {/* Diagonal sheen that sweeps across on hover (pure CSS transition). */}
+            <div className="pointer-events-none absolute inset-0 -translate-x-full bg-linear-to-r from-transparent via-white/40 to-transparent transition-transform duration-700 ease-out group-hover:translate-x-full" />
             {/* Cursor glow — lighter for light theme */}
             <div
                 ref={glowRef}

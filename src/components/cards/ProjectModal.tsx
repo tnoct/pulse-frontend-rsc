@@ -3,7 +3,14 @@ import { AnimatePresence, motion } from "framer-motion";
 import { gsap } from "gsap";
 import type { ProjectMetric } from "../../types/metrics";
 import { StatusBadge } from "../ui/StatusBadge";
-import { overlayVariant, modalVariant } from "../../lib/variants";
+import {
+    overlayVariant,
+    modalVariant,
+    modalContent,
+    modalContentItem,
+} from "../../lib/variants";
+import { useMagnetic } from "../../hooks/useMagnetic";
+import { prefersReducedMotion } from "../../lib/motion";
 
 interface Props {
     project: ProjectMetric | null;
@@ -17,20 +24,28 @@ const RING_CIRC = 2 * Math.PI * RING_R;
 
 export function ProjectModal({ project, onClose }: Props) {
     const ringRef = useRef<SVGCircleElement>(null);
+    const reportBtnRef = useMagnetic<HTMLButtonElement>(0.5);
 
     useEffect(() => {
-        if (!project || !ringRef.current) return;
+        const el = ringRef.current;
+        if (!project || !el) return;
         const offset = RING_CIRC * (1 - project.completionRate / 100);
-        gsap.set(ringRef.current, { strokeDashoffset: RING_CIRC });
-        const tween = gsap.to(ringRef.current, {
-            strokeDashoffset: offset,
-            duration: 1.2,
-            delay: 0.25,
-            ease: "power2.out",
+
+        if (prefersReducedMotion()) {
+            gsap.set(el, { strokeDashoffset: offset });
+            return;
+        }
+
+        gsap.set(el, { strokeDashoffset: RING_CIRC });
+        const ctx = gsap.context(() => {
+            gsap.to(el, {
+                strokeDashoffset: offset,
+                duration: 1.2,
+                delay: 0.35,
+                ease: "power2.out",
+            });
         });
-        return () => {
-            tween.kill();
-        };
+        return () => ctx.revert();
     }, [project]);
 
     return (
@@ -96,10 +111,16 @@ export function ProjectModal({ project, onClose }: Props) {
                         </div>
 
                         {/* Body */}
-                        <div className="p-6">
+                        <motion.div
+                            className="p-6"
+                            variants={modalContent}
+                            initial="hidden"
+                            animate="visible"
+                        >
                             <div className="flex items-center gap-6">
                                 {/* SVG Ring */}
-                                <div
+                                <motion.div
+                                    variants={modalContentItem}
                                     className="relative shrink-0"
                                     style={{
                                         width: RING_SIZE,
@@ -141,11 +162,14 @@ export function ProjectModal({ project, onClose }: Props) {
                                             complete
                                         </span>
                                     </div>
-                                </div>
+                                </motion.div>
 
                                 {/* Stats grid */}
                                 <div className="flex flex-1 flex-col gap-4">
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <motion.div
+                                        variants={modalContentItem}
+                                        className="grid grid-cols-2 gap-3"
+                                    >
                                         <Stat
                                             label="Status"
                                             value={
@@ -172,12 +196,15 @@ export function ProjectModal({ project, onClose }: Props) {
                                             label="Completion"
                                             value={`${project.completionRate}%`}
                                         />
-                                    </div>
+                                    </motion.div>
                                 </div>
                             </div>
 
                             {/* Progress bar */}
-                            <div className="mt-5">
+                            <motion.div
+                                variants={modalContentItem}
+                                className="mt-5"
+                            >
                                 <div className="mb-1.5 flex items-center justify-between text-xs">
                                     <span className="text-gray-400">
                                         Overall Progress
@@ -195,13 +222,13 @@ export function ProjectModal({ project, onClose }: Props) {
                                         }}
                                         transition={{
                                             duration: 1,
-                                            delay: 0.3,
+                                            delay: 0.45,
                                             ease: "easeOut",
                                         }}
                                     />
                                 </div>
-                            </div>
-                        </div>
+                            </motion.div>
+                        </motion.div>
 
                         {/* Footer */}
                         <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-6 py-4">
@@ -211,7 +238,10 @@ export function ProjectModal({ project, onClose }: Props) {
                             >
                                 Close
                             </button>
-                            <button className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500">
+                            <button
+                                ref={reportBtnRef}
+                                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
+                            >
                                 View Full Report
                             </button>
                         </div>

@@ -26,7 +26,25 @@ export const cardItem: Variants = {
         opacity: 1,
         y: 0,
         scale: 1,
-        transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] },
+        transition: { type: "spring", stiffness: 300, damping: 26 },
+    },
+};
+
+// Stagger for the modal body so the ring, stats and progress bar cascade in
+// just after the shared-layout morph settles.
+export const modalContent: Variants = {
+    hidden: {},
+    visible: {
+        transition: { staggerChildren: 0.07, delayChildren: 0.15 },
+    },
+};
+
+export const modalContentItem: Variants = {
+    hidden: { opacity: 0, y: 12 },
+    visible: {
+        opacity: 1,
+        y: 0,
+        transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] },
     },
 };
 
