@@ -13,8 +13,6 @@ An interactive project analytics dashboard built with React 19, Vite, Framer Mot
 ### 1. Install dependencies
 
 ```bash
-npm install
-# or
 yarn install
 ```
 
